@@ -93,6 +93,7 @@ if(RIS_KTX2_BUILD_TESTS)
     add_executable(${TESTS_NAME} ${TEST_SRC_FILES})
     target_link_libraries(${TESTS_NAME} PRIVATE
             ${TARGET_NAME}
+            KTX::ktx        # the tests call libktx directly; ris_ktx2 does not re-export it when built shared
             spdlog::spdlog
             Catch2::Catch2
             Catch2::Catch2WithMain
