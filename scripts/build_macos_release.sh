@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export VCPKG_ROOT=/Users/lerkapic/Desktop/Development/vcpkg
+export VCPKG_ROOT="${VCPKG_ROOT:?set VCPKG_ROOT to your vcpkg checkout}"
 export PATH="$VCPKG_ROOT:$PATH"
 
 vcpkg install

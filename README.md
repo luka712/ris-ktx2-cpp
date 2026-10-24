@@ -288,11 +288,10 @@ This project uses several open-source libraries. See [`THIRD_PARTY_NOTICES.md`](
 
 | Library                     | License                  | Usage                    |
 |-----------------------------|--------------------------|--------------------------|
-| Khronos KTX-Software        | Apache 2.0               | Runtime (linked)         |
+| Khronos KTX-Software        | Apache 2.0 (+ Ericsson ETC decoder, see notices) | Runtime (linked)         |
 | spdlog                      | MIT                      | Runtime (linked)         |
 | {fmt}                       | MIT                      | Runtime (linked via spdlog) |
-| Vulkan Headers              | Apache-2.0 OR MIT        | Runtime (linked)         |
-| Vulkan Loader               | Apache 2.0               | Runtime (linked)         |
+| Vulkan Headers              | Apache-2.0 OR MIT        | Compile time (headers only) |
 | Zstandard (zstd)            | BSD or GPLv2             | Runtime (linked via ktx) |
 | STB Image / STB Resize      | Public Domain / MIT      | Runtime (vendored headers) |
 | Catch2                      | Boost Software License 1.0 | Tests only               |
