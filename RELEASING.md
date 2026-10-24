@@ -1,55 +1,61 @@
-# Releasing ris-ktx2 as a vcpkg port
+# Releasing
 
-The port lives in [`ports/ris-ktx2`](./ports/ris-ktx2). The version in `ports/ris-ktx2/vcpkg.json`,
-the root `vcpkg.json` and `project(... VERSION ...)` in `CMakeLists.txt` must all match.
+Releases are built and published to [GitHub Releases](https://github.com/luka712/ris-ktx2-cpp/releases)
+by [`publish.yml`](./.github/workflows/publish.yml).
 
-## 1. Cut the release
+| Push to | GitHub release | Tag |
+| --- | --- | --- |
+| `develop` | pre-release | `v<version>-dev.<run number>` |
+| `main` | release | `v<version>` |
 
-1. Bump the version in `CMakeLists.txt`, `vcpkg.json` and `ports/ris-ktx2/vcpkg.json`; update `CHANGELOG.md`.
-2. Commit, push and tag: `git tag v<version> && git push origin main v<version>`.
-3. Fill in the archive hash: `scripts/update_port_sha.sh <version>` and commit the change to `portfile.cmake`.
+Every release contains one archive per platform plus `SHA256SUMS.txt`:
 
-## 2. Test the port locally
+| Asset | Platform |
+| --- | --- |
+| `ris_ktx2-v<version>-linux-x64.tar.gz` | Linux x64 |
+| `ris_ktx2-v<version>-linux-arm64.tar.gz` | Linux ARM64 |
+| `ris_ktx2-v<version>-win-x64.zip` | Windows x64 |
+| `ris_ktx2-v<version>-win-arm64.zip` | Windows ARM64 |
+| `ris_ktx2-v<version>-osx-arm64.tar.gz` | macOS Apple Silicon |
+| `ris_ktx2-v<version>-ios-xcframework.zip` | iOS and iPadOS (device arm64 + simulator arm64), static |
+| `ris_ktx2-v<version>-android.zip` | Android (`arm64-v8a`, `x86_64`), API 28+ |
 
-```bash
-vcpkg install ris-ktx2 --overlay-ports=./ports                          # static (x64-linux)
-vcpkg install ris-ktx2 --overlay-ports=./ports --triplet x64-linux-dynamic  # shared
+Each archive is self-contained (libktx and spdlog are linked statically into the shared library) and has the layout:
+
+```
+ris_ktx2-v<version>-<rid>/
+  lib/      libris_ktx2.so | libris_ktx2.dylib | ris_ktx2.lib (import lib, Windows)
+  bin/      ris_ktx2.dll (Windows only)
+  include/ris_ktx2/*.h(pp)
+  share/ris_ktx2/LICENSE, THIRD_PARTY_NOTICES.md
 ```
 
-Consumers then use:
+The workflow builds and runs the tests on every desktop platform before anything is published. The iOS and Android builds are cross-compiled and are not tested in CI.
 
-```cmake
-find_package(ris_ktx2 CONFIG REQUIRED)
-target_link_libraries(main PRIVATE ris_ktx2::ris_ktx2)
+## Cutting a release
+
+1. Bump the version in `CMakeLists.txt` (`project(... VERSION x.y.z)`) and `vcpkg.json`; they must match (the workflow checks this). Update `CHANGELOG.md`.
+2. Merge your branch into `develop`: a pre-release is published. Download and try it.
+3. Merge `develop` into `main`: the release `v<version>` is published. The workflow fails if that tag already exists, so always bump first.
+
+### Mobile layouts
+
+```
+ris_ktx2-v<version>-ios-xcframework/
+  ris_ktx2.xcframework/   static library (ktx, zstd, astcenc, spdlog merged in) + headers
+  licenses/
+ris_ktx2-v<version>-android/
+  jniLibs/arm64-v8a/libris_ktx2.so
+  jniLibs/x86_64/libris_ktx2.so
+  include/ris_ktx2/
+  licenses/
 ```
 
-## 3a. Publish through your own registry (fastest, no review)
+On iOS the library is static, so from C# use `[DllImport("__Internal")]` and link the XCFramework into the app.
+On Android copy `jniLibs/` into the app (Unity: `Assets/Plugins/Android/libs/<abi>/`).
 
-Create a git repo (e.g. `ris-vcpkg-registry`) with `ports/ris-ktx2/` and a `versions/` folder, then:
+## Using a release
 
-```bash
-vcpkg x-add-version ris-ktx2 --x-builtin-ports-root=<registry>/ports --x-builtin-registry-versions-dir=<registry>/versions
-```
-
-Consumers add to `vcpkg-configuration.json`:
-
-```json
-{
-  "registries": [
-    {
-      "kind": "git",
-      "repository": "https://github.com/luka712/ris-vcpkg-registry",
-      "baseline": "<commit sha of the registry>",
-      "packages": [ "ris-ktx2" ]
-    }
-  ]
-}
-```
-
-## 3b. Publish to the curated microsoft/vcpkg registry
-
-1. Fork `microsoft/vcpkg`, copy `ports/ris-ktx2` into its `ports/` folder.
-2. `./vcpkg format-manifest ports/ris-ktx2/vcpkg.json`
-3. Commit the port, then `./vcpkg x-add-version ris-ktx2` and commit the generated `versions/` changes.
-4. Open a PR titled `[ris-ktx2] add new port`. CI builds all triplets; the project needs a few real users/stars
-   to be accepted, and `supports` expressions may be needed if some platforms fail.
+- **C# (P/Invoke):** take the library from the archive for the platform (`bin/ris_ktx2.dll`, `lib/libris_ktx2.so`, `lib/libris_ktx2.dylib`) and ship it as `runtimes/<rid>/native/`.
+- **C / C++:** add `include/` to the include path (headers are in `ris_ktx2/`) and link against `lib/`.
+  The headers include `<ktx.h>` and `<vulkan/vulkan.h>`; install the KTX-Software and Vulkan headers for compilation only, no linking required.

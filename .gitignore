@@ -11,3 +11,12 @@ vcpkg_installed/
 *.user
 
 # Local-only build scripts (copy from the *.template.* versions)
+
+# Machine-specific CMake presets
+CMakeUserPresets.json
+scripts/build_linux.sh
+scripts/build_linux_arm.sh
+scripts/build_macos.sh
+scripts/build_windows.ps1
+scripts/build_windows_arm.ps1
+test_files/output_*.ktx2

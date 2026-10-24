@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main, develop]   # main/develop are handled by the publish workflows
+
+jobs:
+  build-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up vcpkg
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.$([ "$RUNNER_OS" = Windows ] && echo bat || echo sh)" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+      - name: Configure
+        shell: bash
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Test
+        shell: bash
+        run: |
+          cd build
+          if [ -f Release/ris_ktx2_tests.exe ]; then cd Release; cp -r ../test_files .; ./ris_ktx2_tests.exe; else ./ris_ktx2_tests; fi

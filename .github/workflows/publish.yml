@@ -1,0 +1,236 @@
+# develop -> GitHub pre-release v<version>-dev.<run>
+# main    -> GitHub release     v<version>
+#
+# Each release gets one archive per platform (shared library + headers + licenses) and a SHA256SUMS file.
+name: Publish
+
+on:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      prerelease: ${{ steps.ver.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compute version
+        id: ver
+        run: |
+          BASE=$(python3 -c "import json;print(json.load(open('vcpkg.json'))['version'])")
+          CMAKE_VER=$(sed -nE 's/^ *VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt | head -1)
+          if [ "$BASE" != "$CMAKE_VER" ]; then
+            echo "::error::Version mismatch: vcpkg.json=$BASE, CMakeLists.txt=$CMAKE_VER"; exit 1
+          fi
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            VERSION="$BASE"; PRERELEASE=false
+            if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+              echo "::error::Tag v${VERSION} already exists. Bump the version in CMakeLists.txt and vcpkg.json before merging to main."
+              exit 1
+            fi
+          else
+            VERSION="${BASE}-dev.${GITHUB_RUN_NUMBER}"; PRERELEASE=true
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "Publishing $VERSION (prerelease=$PRERELEASE)"
+
+  build:
+    needs: version
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: ubuntu-latest,    rid: linux-x64,   triplet: x64-linux }
+          - { os: ubuntu-24.04-arm, rid: linux-arm64, triplet: arm64-linux }
+          - { os: windows-latest,   rid: win-x64,     triplet: x64-windows-static }
+          - { os: windows-11-arm,   rid: win-arm64,   triplet: arm64-windows-static }
+          - { os: macos-14,         rid: osx-arm64,   triplet: arm64-osx }
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      VCPKG_FORCE_SYSTEM_BINARIES: ${{ startsWith(matrix.os, 'ubuntu') && endsWith(matrix.os, 'arm') && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Set up vcpkg
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.$([ "$RUNNER_OS" = Windows ] && echo bat || echo sh)" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+
+      # Dependencies (ktx, spdlog) are linked statically into the shared library, so each zip is self-contained.
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON -DRIS_KTX2_BUILD_TESTS=ON \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test
+        shell: bash
+        run: |
+          cd build
+          if [ -f Release/ris_ktx2_tests.exe ]; then ./Release/ris_ktx2_tests.exe; else ./ris_ktx2_tests; fi
+
+      - name: Package
+        shell: bash
+        run: |
+          NAME="ris_ktx2-v${VERSION}-${{ matrix.rid }}"
+          cmake --install build --config Release --prefix "stage/${NAME}"
+          rm -rf "stage/${NAME}/lib/cmake"
+          scripts/collect_licenses.sh "build/vcpkg_installed/${{ matrix.triplet }}" "stage/${NAME}/share/ris_ktx2/third_party"
+          # tar.gz on Linux/macOS keeps the .so/.dylib symlinks; zip on Windows.
+          if [ "$RUNNER_OS" = Windows ]; then EXT=zip; else EXT=tar.gz; fi
+          if [ "$EXT" = zip ]; then (cd stage && cmake -E tar cf "../${NAME}.zip" --format=zip "${NAME}")
+          else tar -C stage -czf "${NAME}.tar.gz" "${NAME}"; fi
+          ls -l "${NAME}".*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ris_ktx2-${{ matrix.rid }}
+          path: |
+            ris_ktx2-v*.zip
+            ris_ktx2-v*.tar.gz
+          if-no-files-found: error
+
+  # iOS / iPadOS: static libraries (dependencies merged in) packaged as an XCFramework
+  # (device arm64 + simulator arm64). iOS apps cannot load loose shared libraries.
+  build-ios:
+    needs: version
+    runs-on: macos-14
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up vcpkg
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+
+      - name: Build slices
+        run: |
+          for T in arm64-ios arm64-ios-simulator; do
+            cmake -B "build-$T" -S . -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_SHARED_LIBS=OFF -DRIS_KTX2_BUILD_TESTS=OFF -DVCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON \
+              -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+              -DVCPKG_TARGET_TRIPLET=$T
+            cmake --build "build-$T" --config Release
+            cmake --install "build-$T" --config Release --prefix "install-$T"
+            # Merge our library and all static dependencies (ktx, zstd, astcenc, spdlog, fmt) into one archive.
+            mkdir -p "slice-$T"
+            libtool -static -o "slice-$T/libris_ktx2.a" "install-$T/lib/libris_ktx2.a" "build-$T"/vcpkg_installed/$T/lib/*.a
+            lipo -info "slice-$T/libris_ktx2.a"
+          done
+
+      - name: Create XCFramework
+        run: |
+          NAME="ris_ktx2-v${VERSION}-ios-xcframework"
+          mkdir -p "$NAME" headers
+          cp -R install-arm64-ios/include/ris_ktx2 headers/
+          xcodebuild -create-xcframework \
+            -library slice-arm64-ios/libris_ktx2.a -headers headers \
+            -library slice-arm64-ios-simulator/libris_ktx2.a -headers headers \
+            -output "$NAME/ris_ktx2.xcframework"
+          mkdir -p "$NAME/licenses"
+          cp LICENSE THIRD_PARTY_NOTICES.md "$NAME/licenses/"
+          scripts/collect_licenses.sh build-arm64-ios/vcpkg_installed/arm64-ios "$NAME/licenses/third_party"
+          zip -r -y "${NAME}.zip" "$NAME"
+          ls -l "${NAME}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ris_ktx2-ios
+          path: ris_ktx2-v*.zip
+          if-no-files-found: error
+
+  # Android: one shared library per ABI in the standard jniLibs layout (minimum API level 28).
+  build-android:
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up vcpkg
+        run: |
+          sudo apt-get update && sudo apt-get install -y ninja-build
+          git clone --depth 1 https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}" >> "$GITHUB_ENV"
+
+      - name: Build ABIs
+        run: |
+          NAME="ris_ktx2-v${VERSION}-android"
+          mkdir -p "$NAME/jniLibs" "$NAME/licenses"
+          STRIP="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          for PAIR in arm64-android:arm64-v8a x64-android:x86_64; do
+            T=${PAIR%%:*}; ABI=${PAIR##*:}
+            cmake -B "build-$T" -S . -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_SHARED_LIBS=ON -DRIS_KTX2_BUILD_TESTS=OFF -DVCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON \
+              -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+              -DVCPKG_TARGET_TRIPLET=$T
+            cmake --build "build-$T"
+            cmake --install "build-$T" --prefix "install-$T"
+            mkdir -p "$NAME/jniLibs/$ABI"
+            cp "install-$T/lib/libris_ktx2.so" "$NAME/jniLibs/$ABI/"
+            "$STRIP" --strip-unneeded "$NAME/jniLibs/$ABI/libris_ktx2.so"
+            readelf -d "$NAME/jniLibs/$ABI/libris_ktx2.so" | grep -E "SONAME|NEEDED"
+          done
+          mkdir -p "$NAME/include"
+          cp -R install-arm64-android/include/ris_ktx2 "$NAME/include/"
+          cp LICENSE THIRD_PARTY_NOTICES.md "$NAME/licenses/"
+          scripts/collect_licenses.sh build-arm64-android/vcpkg_installed/arm64-android "$NAME/licenses/third_party"
+          zip -r "${NAME}.zip" "$NAME"
+          ls -l "${NAME}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ris_ktx2-android
+          path: ris_ktx2-v*.zip
+          if-no-files-found: error
+
+  release:
+    needs: [version, build, build-ios, build-android]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub release
+        run: |
+          cd dist
+          sha256sum ris_ktx2-v* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          FLAGS="--generate-notes --target ${GITHUB_SHA} --repo ${GITHUB_REPOSITORY}"
+          if [ "${{ needs.version.outputs.prerelease }}" = "true" ]; then FLAGS="$FLAGS --prerelease"; fi
+          gh release create "v${VERSION}" --title "v${VERSION}" $FLAGS ris_ktx2-v* SHA256SUMS.txt

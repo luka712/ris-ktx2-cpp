@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.30)
 project(ris_ktx2
-        VERSION 0.3.0
+        VERSION 0.1.0
         DESCRIPTION "Thin C ABI wrapper around Khronos KTX-Software (libktx)"
         HOMEPAGE_URL "https://github.com/luka712/ris-ktx2-cpp"
         LANGUAGES CXX)
@@ -74,11 +74,12 @@ else()
     target_compile_definitions(${TARGET_NAME} PUBLIC RIS_KTX2_STATIC)
 endif()
 
-set_target_properties(${TARGET_NAME} PROPERTIES
-        VERSION ${PROJECT_VERSION}
-        SOVERSION ${PROJECT_VERSION_MAJOR}
-        EXPORT_NAME ris_ktx2
-)
+set_target_properties(${TARGET_NAME} PROPERTIES EXPORT_NAME ris_ktx2)
+if(NOT ANDROID) # Android packaging requires a plain libris_ktx2.so (no versioned soname)
+    set_target_properties(${TARGET_NAME} PROPERTIES
+            VERSION ${PROJECT_VERSION}
+            SOVERSION ${PROJECT_VERSION_MAJOR})
+endif()
 
 # ---------------------------------------------------------------------------
 # Tests

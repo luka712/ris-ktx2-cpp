@@ -1,8 +1,0 @@
-ris-ktx2 provides CMake targets:
-
-    find_package(ris_ktx2 CONFIG REQUIRED)
-    target_link_libraries(main PRIVATE ris_ktx2::ris_ktx2)
-
-Headers are installed under <ris_ktx2/...>, e.g.:
-
-    #include <ris_ktx2/ris_ktx.hpp>

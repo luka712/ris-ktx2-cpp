@@ -45,23 +45,18 @@ This wrapper solves those issues by:
 
 Install them via `vcpkg install` or let the build scripts handle it.
 
-## Install with vcpkg
+## Download
 
-Once the port is published (see [RELEASING.md](./RELEASING.md)):
-
-```bash
-vcpkg install ris-ktx2
-```
-
-```cmake
-find_package(ris_ktx2 CONFIG REQUIRED)
-target_link_libraries(main PRIVATE ris_ktx2::ris_ktx2)
-```
-
-Headers are installed as `<ris_ktx2/ris_ktx.hpp>`. Use the `*-dynamic` triplets (or `BUILD_SHARED_LIBS=ON`) for the shared library needed by P/Invoke.
-To run the tests when building this repo directly: `cmake ... -DRIS_KTX2_BUILD_TESTS=ON` (the default for top-level builds).
+Prebuilt shared libraries for Linux (x64, ARM64), Windows (x64, ARM64), macOS (Apple Silicon), iOS/iPadOS and Android are attached to every
+[GitHub release](https://github.com/luka712/ris-ktx2-cpp/releases). See [RELEASING.md](./RELEASING.md) for the contents and layout of each archive.
 
 ## Build
+
+In CLion (or any IDE with CMake preset support), copy `CMakeUserPresets.template.json` to `CMakeUserPresets.json` (git-ignored) and replace `/path/to/vcpkg` with your vcpkg checkout. Then pick the "Debug (local vcpkg)" or "Release (local vcpkg)" preset.
+
+From a terminal, without the user presets: `VCPKG_ROOT=/path/to/vcpkg cmake --preset debug && cmake --build cmake-build-debug`.
+
+Or use the platform scripts below.
 
 All build scripts are in `scripts/`. Templates are provided for you to copy and customize with your local vcpkg path.
 
@@ -285,17 +280,18 @@ public static extern uint ris_ktxTexture2_IsLoggingEnabled();
 
 ## License
 
-This wrapper is internal/proprietary.
+Released under the [MIT License](LICENSE).
+
+*ris-ktx2 is an independent project and is not affiliated with or endorsed by The Khronos Group. "KTX", "Khronos" and "Vulkan" are trademarks of The Khronos Group Inc.*
 
 This project uses several open-source libraries. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the full license text of all dependencies, including:
 
 | Library                     | License                  | Usage                    |
 |-----------------------------|--------------------------|--------------------------|
-| Khronos KTX-Software        | Apache 2.0               | Runtime (linked)         |
+| Khronos KTX-Software        | Apache 2.0 (+ Ericsson ETC decoder, see notices) | Runtime (linked)         |
 | spdlog                      | MIT                      | Runtime (linked)         |
 | {fmt}                       | MIT                      | Runtime (linked via spdlog) |
-| Vulkan Headers              | Apache-2.0 OR MIT        | Runtime (linked)         |
-| Vulkan Loader               | Apache 2.0               | Runtime (linked)         |
+| Vulkan Headers              | Apache-2.0 OR MIT        | Compile time (headers only) |
 | Zstandard (zstd)            | BSD or GPLv2             | Runtime (linked via ktx) |
 | STB Image / STB Resize      | Public Domain / MIT      | Runtime (vendored headers) |
 | Catch2                      | Boost Software License 1.0 | Tests only               |
