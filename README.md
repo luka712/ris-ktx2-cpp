@@ -52,6 +52,10 @@ Prebuilt shared libraries for Linux (x64, ARM64), Windows (x64, ARM64), macOS (A
 
 ## Build
 
+In CLion (or any IDE with CMake preset support) choose a preset: copy the `*-local` presets from your own `CMakeUserPresets.json` or set the `VCPKG_ROOT` environment variable and use the `debug` / `release` presets from `CMakePresets.json`. From a terminal: `VCPKG_ROOT=/path/to/vcpkg cmake --preset debug && cmake --build cmake-build-debug`.
+
+Or use the platform scripts below.
+
 All build scripts are in `scripts/`. Templates are provided for you to copy and customize with your local vcpkg path.
 
 ### Linux (x64)

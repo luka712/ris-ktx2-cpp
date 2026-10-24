@@ -11,3 +11,6 @@ vcpkg_installed/
 *.user
 
 # Local-only build scripts (copy from the *.template.* versions)
+
+# Machine-specific CMake presets
+CMakeUserPresets.json
