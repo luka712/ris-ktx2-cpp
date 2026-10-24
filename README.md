@@ -45,21 +45,10 @@ This wrapper solves those issues by:
 
 Install them via `vcpkg install` or let the build scripts handle it.
 
-## Install with vcpkg
+## Download
 
-Published through the [ris-vcpkg-registry](https://github.com/luka712/ris-vcpkg-registry); see [RELEASING.md](./RELEASING.md) for the registry setup:
-
-```bash
-vcpkg install ris-ktx2
-```
-
-```cmake
-find_package(ris_ktx2 CONFIG REQUIRED)
-target_link_libraries(main PRIVATE ris_ktx2::ris_ktx2)
-```
-
-Headers are installed as `<ris_ktx2/ris_ktx.hpp>`. Use the `*-dynamic` triplets (or `BUILD_SHARED_LIBS=ON`) for the shared library needed by P/Invoke.
-To run the tests when building this repo directly: `cmake ... -DRIS_KTX2_BUILD_TESTS=ON` (the default for top-level builds).
+Prebuilt shared libraries for Linux (x64, ARM64), Windows (x64) and macOS (Apple Silicon, Intel) are attached to every
+[GitHub release](https://github.com/luka712/ris-ktx2-cpp/releases). See [RELEASING.md](./RELEASING.md) for the contents and layout of each archive.
 
 ## Build
 
@@ -285,7 +274,7 @@ public static extern uint ris_ktxTexture2_IsLoggingEnabled();
 
 ## License
 
-This wrapper is internal/proprietary.
+Released under the [MIT License](LICENSE).
 
 This project uses several open-source libraries. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the full license text of all dependencies, including:
 

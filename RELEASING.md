@@ -1,54 +1,43 @@
-# Releasing ris-ktx2 as a vcpkg port
+# Releasing
 
-The port source lives in [`ports/ris-ktx2`](./ports/ris-ktx2) and is published to the registry
-[`luka712/ris-vcpkg-registry`](https://github.com/luka712/ris-vcpkg-registry) by GitHub Actions
-([`publish.yml`](./.github/workflows/publish.yml)).
+Releases are built and published to [GitHub Releases](https://github.com/luka712/ris-ktx2-cpp/releases)
+by [`publish.yml`](./.github/workflows/publish.yml).
 
-| Push to | GitHub release | Registry branch | vcpkg version |
-| --- | --- | --- | --- |
-| `develop` | pre-release `v<version>-dev.<run>` | `develop` | `<version>-dev.<run>` |
-| `main` | release `v<version>` | `main` | `<version>` |
+| Push to | GitHub release | Tag |
+| --- | --- | --- |
+| `develop` | pre-release | `v<version>-dev.<run number>` |
+| `main` | release | `v<version>` |
 
-One-time setup: add a repository secret `REGISTRY_TOKEN` (fine-grained PAT, *Contents: read & write* on the registry repo).
+Every release contains one archive per platform plus `SHA256SUMS.txt`:
 
-## Releasing
+| Asset | Platform |
+| --- | --- |
+| `ris_ktx2-v<version>-linux-x64.tar.gz` | Linux x64 |
+| `ris_ktx2-v<version>-linux-arm64.tar.gz` | Linux ARM64 |
+| `ris_ktx2-v<version>-win-x64.zip` | Windows x64 |
+| `ris_ktx2-v<version>-osx-arm64.tar.gz` | macOS Apple Silicon |
+| `ris_ktx2-v<version>-osx-x64.tar.gz` | macOS Intel |
 
-1. Bump the version in `CMakeLists.txt`, `vcpkg.json` and `ports/ris-ktx2/vcpkg.json` (all three must match) and update `CHANGELOG.md`.
-2. Merge the feature branch into `develop`. A pre-release is published automatically. Try it (see below).
-3. Merge `develop` into `main`. The release `v<version>` is published. The workflow fails if that tag already exists, so always bump first.
+Each archive is self-contained (libktx and spdlog are linked statically into the shared library) and has the layout:
 
-## Using the registry
-
-`vcpkg-configuration.json` of a consumer project:
-
-```json
-{
-  "registries": [
-    {
-      "kind": "git",
-      "repository": "https://github.com/luka712/ris-vcpkg-registry",
-      "reference": "main",
-      "baseline": "<commit sha of the registry>",
-      "packages": [ "ris-ktx2" ]
-    }
-  ]
-}
+```
+ris_ktx2-v<version>-<rid>/
+  lib/      libris_ktx2.so | libris_ktx2.dylib | ris_ktx2.lib (import lib, Windows)
+  bin/      ris_ktx2.dll (Windows only)
+  include/ris_ktx2/*.h(pp)
+  share/ris_ktx2/LICENSE, THIRD_PARTY_NOTICES.md
 ```
 
-Use `"reference": "develop"` to consume pre-releases. Then add `"ris-ktx2"` to the project's `vcpkg.json`
-dependencies and use `find_package(ris_ktx2 CONFIG REQUIRED)` / `ris_ktx2::ris_ktx2`.
+The workflow builds and runs the tests on every platform before anything is published.
 
-## Testing the port locally
+## Cutting a release
 
-```bash
-vcpkg install ris-ktx2 --overlay-ports=./ports                              # static (x64-linux)
-vcpkg install ris-ktx2 --overlay-ports=./ports --triplet x64-linux-dynamic  # shared
-```
+1. Bump the version in `CMakeLists.txt` (`project(... VERSION x.y.z)`) and `vcpkg.json`; they must match (the workflow checks this). Update `CHANGELOG.md`.
+2. Merge your branch into `develop`: a pre-release is published. Download and try it.
+3. Merge `develop` into `main`: the release `v<version>` is published. The workflow fails if that tag already exists, so always bump first.
 
-(This needs a pushed tag matching the version; the placeholder SHA512 in the repo copy of the portfile is
-replaced by `scripts/publish_to_registry.sh` during publishing.)
+## Using a release
 
-## Submitting to the curated microsoft/vcpkg registry (optional, later)
-
-Copy `ports/ris-ktx2` into a fork of `microsoft/vcpkg`, run `vcpkg format-manifest`, `vcpkg x-add-version ris-ktx2`,
-and open a PR titled `[ris-ktx2] add new port`.
+- **C# (P/Invoke):** take the library from the archive for the platform (`bin/ris_ktx2.dll`, `lib/libris_ktx2.so`, `lib/libris_ktx2.dylib`) and ship it as `runtimes/<rid>/native/`.
+- **C / C++:** add `include/` to the include path (headers are in `ris_ktx2/`) and link against `lib/`.
+  The headers include `<ktx.h>` and `<vulkan/vulkan.h>`; install the KTX-Software and Vulkan headers for compilation only, no linking required.

@@ -4,7 +4,8 @@
 
 ### Added
 - Standalone repository for the native library (split out of `RisKtx2`).
-- vcpkg port (`ports/ris-ktx2`) and installable CMake package (`find_package(ris_ktx2 CONFIG)`, target `ris_ktx2::ris_ktx2`).
+- Installable CMake package (`ris_ktx2::ris_ktx2`) and install rules (headers go to `include/ris_ktx2/`).
+- GitHub Actions: CI plus release publishing with prebuilt binaries for Linux, Windows and macOS.
 - Static library support (`BUILD_SHARED_LIBS=OFF`).
 
 ### Changed
