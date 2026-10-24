@@ -2,6 +2,12 @@
 
 This project uses the following third-party libraries. Their respective licenses are reproduced below.
 
+The full license texts of the libraries that are linked into the prebuilt binaries (KTX-Software and the components
+bundled in it, zstd, spdlog, {fmt}, Vulkan headers) are shipped with every release archive in the `third_party/` folder
+next to this file (`share/ris_ktx2/third_party/` on desktop, `licenses/third_party/` for iOS and Android).
+
+ris-ktx2 itself is released under the MIT license, see `LICENSE`.
+
 ---
 
 ## Khronos KTX-Software (libktx)
@@ -16,6 +22,22 @@ Files unique to this repository generally fall under the Apache 2.0 license with
 Because KTX-Software incorporates material and contributions from many other projects, which often have their own licenses, there are many other licenses in use in this repository. While there are many licenses in this repository, with rare exceptions all are open source licenses that we believe to be mutually compatible.
 
 The complete text of each of the licenses used in this repository is found in the KTX-Software repository at `LICENSES/*.txt`.
+
+---
+
+## Components bundled inside KTX-Software (linked into the binaries)
+
+libktx bundles the following, all linked into `ris_ktx2`:
+
+- **Basis Universal** (Binomial LLC) – Apache-2.0 – ETC1S/UASTC compression and transcoding.
+- **ARM astc-encoder** – Apache-2.0 – ASTC compression.
+- **dfdutils** (Khronos / Mark Callow) – Apache-2.0.
+- **Ericsson ETC decoder (`etcdec.cxx`)** – Ericsson Texture Compression Software License Agreement (not an OSI license).
+  Redistribution in binary form is permitted for products that compress/decompress textures according to the Khronos
+  OpenGL, OpenGL ES and WebGL specifications; it is terminated if the licensee starts patent litigation against Ericsson
+  or other licensees within the Khronos framework. Full text: `third_party/ktx-LICENSES/LicenseRef-ETCSLA.txt`.
+
+See the KTX-Software `LICENSES/` folder (shipped in `third_party/ktx-LICENSES/`) for every license text used there.
 
 ---
 
@@ -65,17 +87,9 @@ Full license text available at:
 
 ---
 
-## Vulkan Loader
-
-**License:** Apache 2.0
-
-The majority of files in this project use the Apache 2.0 License. There are a few exceptions and their license can be found in the source. Any license deviations from Apache 2.0 are "more permissive" licenses.
-
----
-
 ## Zstandard (zstd)
 
-**License:** BSD or GPLv2 (dual licensed)
+**License:** BSD-3-Clause or GPLv2 (dual licensed). ris-ktx2 uses zstd under the BSD-3-Clause terms.
 
 Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.
 
@@ -99,7 +113,7 @@ STB libraries (stb_image.h, stb_image_resize.h) are in the public domain. You ca
 
 ## Catch2
 
-**License:** Boost Software License 1.0 (tests only)
+**License:** Boost Software License 1.0 (used only to build the test executable; not part of the released binaries)
 
 Permission is hereby granted, free of charge, to any person or organization obtaining a copy of the software and accompanying documentation covered by this license (the "Software") to use, reproduce, display, distribute, execute, and transmit the Software, and to prepare derivative works of the Software, and to permit third-parties to whom the Software is furnished to do so, all subject to the following:
 

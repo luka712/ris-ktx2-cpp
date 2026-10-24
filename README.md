@@ -282,6 +282,8 @@ public static extern uint ris_ktxTexture2_IsLoggingEnabled();
 
 Released under the [MIT License](LICENSE).
 
+*ris-ktx2 is an independent project and is not affiliated with or endorsed by The Khronos Group. "KTX", "Khronos" and "Vulkan" are trademarks of The Khronos Group Inc.*
+
 This project uses several open-source libraries. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the full license text of all dependencies, including:
 
 | Library                     | License                  | Usage                    |

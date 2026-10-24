@@ -99,6 +99,7 @@ jobs:
           NAME="ris_ktx2-v${VERSION}-${{ matrix.rid }}"
           cmake --install build --config Release --prefix "stage/${NAME}"
           rm -rf "stage/${NAME}/lib/cmake"
+          scripts/collect_licenses.sh "build/vcpkg_installed/${{ matrix.triplet }}" "stage/${NAME}/share/ris_ktx2/third_party"
           # tar.gz on Linux/macOS keeps the .so/.dylib symlinks; zip on Windows.
           if [ "$RUNNER_OS" = Windows ]; then EXT=zip; else EXT=tar.gz; fi
           if [ "$EXT" = zip ]; then (cd stage && cmake -E tar cf "../${NAME}.zip" --format=zip "${NAME}")
@@ -155,6 +156,7 @@ jobs:
             -output "$NAME/ris_ktx2.xcframework"
           mkdir -p "$NAME/licenses"
           cp LICENSE THIRD_PARTY_NOTICES.md "$NAME/licenses/"
+          scripts/collect_licenses.sh build-arm64-ios/vcpkg_installed/arm64-ios "$NAME/licenses/third_party"
           zip -r -y "${NAME}.zip" "$NAME"
           ls -l "${NAME}.zip"
 
@@ -202,6 +204,7 @@ jobs:
           mkdir -p "$NAME/include"
           cp -R install-arm64-android/include/ris_ktx2 "$NAME/include/"
           cp LICENSE THIRD_PARTY_NOTICES.md "$NAME/licenses/"
+          scripts/collect_licenses.sh build-arm64-android/vcpkg_installed/arm64-android "$NAME/licenses/third_party"
           zip -r "${NAME}.zip" "$NAME"
           ls -l "${NAME}.zip"
 

@@ -3,6 +3,7 @@
 ## [0.1.0] - Unreleased
 
 ### Added
+- Release archives ship the license texts of all bundled third-party code (`third_party/`).
 - Standalone repository for the native library (split out of `RisKtx2`).
 - Installable CMake package (`ris_ktx2::ris_ktx2`) and install rules (headers go to `include/ris_ktx2/`).
 - GitHub Actions: CI plus release publishing with prebuilt binaries for Linux, Windows and macOS.
