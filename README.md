@@ -47,7 +47,7 @@ Install them via `vcpkg install` or let the build scripts handle it.
 
 ## Download
 
-Prebuilt shared libraries for Linux (x64, ARM64), Windows (x64) and macOS (Apple Silicon, Intel) are attached to every
+Prebuilt shared libraries for Linux (x64, ARM64), Windows (x64, ARM64), macOS (Apple Silicon, Intel), iOS/iPadOS and Android are attached to every
 [GitHub release](https://github.com/luka712/ris-ktx2-cpp/releases). See [RELEASING.md](./RELEASING.md) for the contents and layout of each archive.
 
 ## Build

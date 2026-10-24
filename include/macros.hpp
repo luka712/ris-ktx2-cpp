@@ -10,7 +10,7 @@
 //  - RIS_KTX2_BUILDING : defined privately while building the shared library itself.
 #ifndef API_EXPORT
 
-#if defined(RIS_KTX2_STATIC)
+#if defined(RIS_KTX2_STATIC) && (defined(_WIN32) || defined(_WIN64))
     #define API_EXPORT
 #elif defined(_WIN32) || defined(_WIN64)
     #if defined(RIS_KTX2_BUILDING)

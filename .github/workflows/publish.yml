@@ -55,6 +55,7 @@ jobs:
           - { os: ubuntu-latest,    rid: linux-x64,   triplet: x64-linux }
           - { os: ubuntu-24.04-arm, rid: linux-arm64, triplet: arm64-linux }
           - { os: windows-latest,   rid: win-x64,     triplet: x64-windows-static }
+          - { os: windows-11-arm,   rid: win-arm64,   triplet: arm64-windows-static }
           - { os: macos-14,         rid: osx-arm64,   triplet: arm64-osx }
           - { os: macos-15-intel,   rid: osx-x64,     triplet: x64-osx }
     runs-on: ${{ matrix.os }}
@@ -113,8 +114,106 @@ jobs:
             ris_ktx2-v*.tar.gz
           if-no-files-found: error
 
+  # iOS / iPadOS: static libraries (dependencies merged in) packaged as an XCFramework
+  # (device arm64 + simulator arm64). iOS apps cannot load loose shared libraries.
+  build-ios:
+    needs: version
+    runs-on: macos-14
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up vcpkg
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+
+      - name: Build slices
+        run: |
+          for T in arm64-ios arm64-ios-simulator; do
+            cmake -B "build-$T" -S . -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_SHARED_LIBS=OFF -DRIS_KTX2_BUILD_TESTS=OFF -DVCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON \
+              -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+              -DVCPKG_TARGET_TRIPLET=$T
+            cmake --build "build-$T" --config Release
+            cmake --install "build-$T" --config Release --prefix "install-$T"
+            # Merge our library and all static dependencies (ktx, zstd, astcenc, spdlog, fmt) into one archive.
+            mkdir -p "slice-$T"
+            libtool -static -o "slice-$T/libris_ktx2.a" "install-$T/lib/libris_ktx2.a" "build-$T"/vcpkg_installed/$T/lib/*.a
+            lipo -info "slice-$T/libris_ktx2.a"
+          done
+
+      - name: Create XCFramework
+        run: |
+          NAME="ris_ktx2-v${VERSION}-ios-xcframework"
+          mkdir -p "$NAME" headers
+          cp -R install-arm64-ios/include/ris_ktx2 headers/
+          xcodebuild -create-xcframework \
+            -library slice-arm64-ios/libris_ktx2.a -headers headers \
+            -library slice-arm64-ios-simulator/libris_ktx2.a -headers headers \
+            -output "$NAME/ris_ktx2.xcframework"
+          mkdir -p "$NAME/licenses"
+          cp LICENSE THIRD_PARTY_NOTICES.md "$NAME/licenses/"
+          zip -r -y "${NAME}.zip" "$NAME"
+          ls -l "${NAME}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ris_ktx2-ios
+          path: ris_ktx2-v*.zip
+          if-no-files-found: error
+
+  # Android: one shared library per ABI in the standard jniLibs layout (minimum API level 28).
+  build-android:
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up vcpkg
+        run: |
+          sudo apt-get update && sudo apt-get install -y ninja-build
+          git clone --depth 1 https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}" >> "$GITHUB_ENV"
+
+      - name: Build ABIs
+        run: |
+          NAME="ris_ktx2-v${VERSION}-android"
+          mkdir -p "$NAME/jniLibs" "$NAME/licenses"
+          STRIP="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          for PAIR in arm64-android:arm64-v8a x64-android:x86_64; do
+            T=${PAIR%%:*}; ABI=${PAIR##*:}
+            cmake -B "build-$T" -S . -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_SHARED_LIBS=ON -DRIS_KTX2_BUILD_TESTS=OFF -DVCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON \
+              -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+              -DVCPKG_TARGET_TRIPLET=$T
+            cmake --build "build-$T"
+            cmake --install "build-$T" --prefix "install-$T"
+            mkdir -p "$NAME/jniLibs/$ABI"
+            cp "install-$T/lib/libris_ktx2.so" "$NAME/jniLibs/$ABI/"
+            "$STRIP" --strip-unneeded "$NAME/jniLibs/$ABI/libris_ktx2.so"
+            readelf -d "$NAME/jniLibs/$ABI/libris_ktx2.so" | grep -E "SONAME|NEEDED"
+          done
+          mkdir -p "$NAME/include"
+          cp -R install-arm64-android/include/ris_ktx2 "$NAME/include/"
+          cp LICENSE THIRD_PARTY_NOTICES.md "$NAME/licenses/"
+          zip -r "${NAME}.zip" "$NAME"
+          ls -l "${NAME}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ris_ktx2-android
+          path: ris_ktx2-v*.zip
+          if-no-files-found: error
+
   release:
-    needs: [version, build]
+    needs: [version, build, build-ios, build-android]
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}

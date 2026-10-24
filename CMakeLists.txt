@@ -74,11 +74,12 @@ else()
     target_compile_definitions(${TARGET_NAME} PUBLIC RIS_KTX2_STATIC)
 endif()
 
-set_target_properties(${TARGET_NAME} PROPERTIES
-        VERSION ${PROJECT_VERSION}
-        SOVERSION ${PROJECT_VERSION_MAJOR}
-        EXPORT_NAME ris_ktx2
-)
+set_target_properties(${TARGET_NAME} PROPERTIES EXPORT_NAME ris_ktx2)
+if(NOT ANDROID) # Android packaging requires a plain libris_ktx2.so (no versioned soname)
+    set_target_properties(${TARGET_NAME} PROPERTIES
+            VERSION ${PROJECT_VERSION}
+            SOVERSION ${PROJECT_VERSION_MAJOR})
+endif()
 
 # ---------------------------------------------------------------------------
 # Tests
