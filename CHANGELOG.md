@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.3.0] - Unreleased
+## [0.1.0] - Unreleased
 
 ### Added
 - Standalone repository for the native library (split out of `RisKtx2`).

@@ -2,7 +2,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO luka712/ris-ktx2-cpp
     REF "v${VERSION}"
-    SHA512 0  # TODO: replace after tagging, see RELEASING.md
+    SHA512 0  # placeholder: filled in by scripts/publish_to_registry.sh
     HEAD_REF main
 )
 

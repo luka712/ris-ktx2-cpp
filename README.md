@@ -47,7 +47,7 @@ Install them via `vcpkg install` or let the build scripts handle it.
 
 ## Install with vcpkg
 
-Once the port is published (see [RELEASING.md](./RELEASING.md)):
+Published through the [ris-vcpkg-registry](https://github.com/luka712/ris-vcpkg-registry); see [RELEASING.md](./RELEASING.md) for the registry setup:
 
 ```bash
 vcpkg install ris-ktx2

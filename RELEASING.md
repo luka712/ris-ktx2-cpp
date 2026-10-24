@@ -1,37 +1,25 @@
 # Releasing ris-ktx2 as a vcpkg port
 
-The port lives in [`ports/ris-ktx2`](./ports/ris-ktx2). The version in `ports/ris-ktx2/vcpkg.json`,
-the root `vcpkg.json` and `project(... VERSION ...)` in `CMakeLists.txt` must all match.
+The port source lives in [`ports/ris-ktx2`](./ports/ris-ktx2) and is published to the registry
+[`luka712/ris-vcpkg-registry`](https://github.com/luka712/ris-vcpkg-registry) by GitHub Actions
+([`publish.yml`](./.github/workflows/publish.yml)).
 
-## 1. Cut the release
+| Push to | GitHub release | Registry branch | vcpkg version |
+| --- | --- | --- | --- |
+| `develop` | pre-release `v<version>-dev.<run>` | `develop` | `<version>-dev.<run>` |
+| `main` | release `v<version>` | `main` | `<version>` |
 
-1. Bump the version in `CMakeLists.txt`, `vcpkg.json` and `ports/ris-ktx2/vcpkg.json`; update `CHANGELOG.md`.
-2. Commit, push and tag: `git tag v<version> && git push origin main v<version>`.
-3. Fill in the archive hash: `scripts/update_port_sha.sh <version>` and commit the change to `portfile.cmake`.
+One-time setup: add a repository secret `REGISTRY_TOKEN` (fine-grained PAT, *Contents: read & write* on the registry repo).
 
-## 2. Test the port locally
+## Releasing
 
-```bash
-vcpkg install ris-ktx2 --overlay-ports=./ports                          # static (x64-linux)
-vcpkg install ris-ktx2 --overlay-ports=./ports --triplet x64-linux-dynamic  # shared
-```
+1. Bump the version in `CMakeLists.txt`, `vcpkg.json` and `ports/ris-ktx2/vcpkg.json` (all three must match) and update `CHANGELOG.md`.
+2. Merge the feature branch into `develop`. A pre-release is published automatically. Try it (see below).
+3. Merge `develop` into `main`. The release `v<version>` is published. The workflow fails if that tag already exists, so always bump first.
 
-Consumers then use:
+## Using the registry
 
-```cmake
-find_package(ris_ktx2 CONFIG REQUIRED)
-target_link_libraries(main PRIVATE ris_ktx2::ris_ktx2)
-```
-
-## 3a. Publish through your own registry (fastest, no review)
-
-Create a git repo (e.g. `ris-vcpkg-registry`) with `ports/ris-ktx2/` and a `versions/` folder, then:
-
-```bash
-vcpkg x-add-version ris-ktx2 --x-builtin-ports-root=<registry>/ports --x-builtin-registry-versions-dir=<registry>/versions
-```
-
-Consumers add to `vcpkg-configuration.json`:
+`vcpkg-configuration.json` of a consumer project:
 
 ```json
 {
@@ -39,6 +27,7 @@ Consumers add to `vcpkg-configuration.json`:
     {
       "kind": "git",
       "repository": "https://github.com/luka712/ris-vcpkg-registry",
+      "reference": "main",
       "baseline": "<commit sha of the registry>",
       "packages": [ "ris-ktx2" ]
     }
@@ -46,10 +35,20 @@ Consumers add to `vcpkg-configuration.json`:
 }
 ```
 
-## 3b. Publish to the curated microsoft/vcpkg registry
+Use `"reference": "develop"` to consume pre-releases. Then add `"ris-ktx2"` to the project's `vcpkg.json`
+dependencies and use `find_package(ris_ktx2 CONFIG REQUIRED)` / `ris_ktx2::ris_ktx2`.
 
-1. Fork `microsoft/vcpkg`, copy `ports/ris-ktx2` into its `ports/` folder.
-2. `./vcpkg format-manifest ports/ris-ktx2/vcpkg.json`
-3. Commit the port, then `./vcpkg x-add-version ris-ktx2` and commit the generated `versions/` changes.
-4. Open a PR titled `[ris-ktx2] add new port`. CI builds all triplets; the project needs a few real users/stars
-   to be accepted, and `supports` expressions may be needed if some platforms fail.
+## Testing the port locally
+
+```bash
+vcpkg install ris-ktx2 --overlay-ports=./ports                              # static (x64-linux)
+vcpkg install ris-ktx2 --overlay-ports=./ports --triplet x64-linux-dynamic  # shared
+```
+
+(This needs a pushed tag matching the version; the placeholder SHA512 in the repo copy of the portfile is
+replaced by `scripts/publish_to_registry.sh` during publishing.)
+
+## Submitting to the curated microsoft/vcpkg registry (optional, later)
+
+Copy `ports/ris-ktx2` into a fork of `microsoft/vcpkg`, run `vcpkg format-manifest`, `vcpkg x-add-version ris-ktx2`,
+and open a PR titled `[ris-ktx2] add new port`.

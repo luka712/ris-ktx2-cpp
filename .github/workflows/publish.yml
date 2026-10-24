@@ -1,0 +1,80 @@
+# develop -> GitHub pre-release v<version>-dev.<run> + registry branch `develop`
+# main    -> GitHub release     v<version>           + registry branch `main`
+#
+# Requires the repository secret REGISTRY_TOKEN: a fine-grained PAT with "Contents: read & write"
+# on luka712/ris-vcpkg-registry.
+name: Publish
+
+on:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY_REPO: luka712/ris-vcpkg-registry
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute version
+        id: ver
+        run: |
+          BASE=$(python3 -c "import json;print(json.load(open('vcpkg.json'))['version'])")
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            VERSION="$BASE"; PRERELEASE=false
+          else
+            VERSION="${BASE}-dev.${GITHUB_RUN_NUMBER}"; PRERELEASE=true
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "Publishing $VERSION (prerelease=$PRERELEASE)"
+
+      - name: Refuse to overwrite an existing release
+        if: github.ref_name == 'main'
+        run: |
+          if git rev-parse -q --verify "refs/tags/v${{ steps.ver.outputs.version }}" >/dev/null; then
+            echo "::error::Tag v${{ steps.ver.outputs.version }} already exists. Bump the version in CMakeLists.txt, vcpkg.json and ports/ris-ktx2/vcpkg.json before merging to main."
+            exit 1
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ steps.ver.outputs.version }}"
+          FLAGS="--generate-notes --target ${GITHUB_SHA}"
+          if [ "${{ steps.ver.outputs.prerelease }}" = "true" ]; then FLAGS="$FLAGS --prerelease"; fi
+          gh release create "v${V}" --title "v${V}" $FLAGS
+
+      - name: Set up vcpkg
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg "$RUNNER_TEMP/vcpkg"
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+
+      - name: Check out registry
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REGISTRY_REPO }}
+          ref: ${{ github.ref_name }}
+          token: ${{ secrets.REGISTRY_TOKEN }}
+          path: registry
+          fetch-depth: 0
+
+      - name: Publish port to registry
+        run: |
+          git -C registry config user.name "github-actions[bot]"
+          git -C registry config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          scripts/publish_to_registry.sh "${{ steps.ver.outputs.version }}" registry
+          git -C registry push origin "HEAD:${{ github.ref_name }}"

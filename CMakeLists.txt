@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.30)
 project(ris_ktx2
-        VERSION 0.3.0
+        VERSION 0.1.0
         DESCRIPTION "Thin C ABI wrapper around Khronos KTX-Software (libktx)"
         HOMEPAGE_URL "https://github.com/luka712/ris-ktx2-cpp"
         LANGUAGES CXX)
