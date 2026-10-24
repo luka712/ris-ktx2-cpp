@@ -17,7 +17,6 @@ Every release contains one archive per platform plus `SHA256SUMS.txt`:
 | `ris_ktx2-v<version>-win-x64.zip` | Windows x64 |
 | `ris_ktx2-v<version>-win-arm64.zip` | Windows ARM64 |
 | `ris_ktx2-v<version>-osx-arm64.tar.gz` | macOS Apple Silicon |
-| `ris_ktx2-v<version>-osx-x64.tar.gz` | macOS Intel |
 | `ris_ktx2-v<version>-ios-xcframework.zip` | iOS and iPadOS (device arm64 + simulator arm64), static |
 | `ris_ktx2-v<version>-android.zip` | Android (`arm64-v8a`, `x86_64`), API 28+ |
 

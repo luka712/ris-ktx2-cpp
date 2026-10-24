@@ -57,7 +57,6 @@ jobs:
           - { os: windows-latest,   rid: win-x64,     triplet: x64-windows-static }
           - { os: windows-11-arm,   rid: win-arm64,   triplet: arm64-windows-static }
           - { os: macos-14,         rid: osx-arm64,   triplet: arm64-osx }
-          - { os: macos-15-intel,   rid: osx-x64,     triplet: x64-osx }
     runs-on: ${{ matrix.os }}
     env:
       VERSION: ${{ needs.version.outputs.version }}
