@@ -1,0 +1,13 @@
+# Build output
+cmake-build-*/
+build/
+out/
+vcpkg_installed/
+
+# IDEs
+.idea/
+.vs/
+.vscode/
+*.user
+
+# Local-only build scripts (copy from the *.template.* versions)

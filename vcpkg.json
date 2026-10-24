@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "ris-ktx2",
+  "version": "0.3.0",
+  "description": "Thin C ABI wrapper around Khronos KTX-Software (libktx) for creating, loading, writing, compressing (Basis Universal) and transcoding KTX2 textures.",
+  "homepage": "https://github.com/luka712/ris-ktx2-cpp",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "ktx",
+      "version>=": "4.4.2"
+    },
+    "spdlog",
+    "vulkan-headers"
+  ],
+  "default-features": [
+    "tests"
+  ],
+  "features": {
+    "tests": {
+      "description": "Dependencies for building the test executable (development only)",
+      "dependencies": [
+        "catch2"
+      ]
+    }
+  }
+}
